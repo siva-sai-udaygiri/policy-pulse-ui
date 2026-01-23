@@ -1,73 +1,46 @@
-# React + TypeScript + Vite
+# Policy Pulse UI
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend for **Policy Pulse** — a full-stack insurance policy management app.  
+Built with **React + TypeScript + Vite** and designed to integrate with a Spring Boot API.
 
-Currently, two official plugins are available:
+> Backend repo (Policy Pulse API):
+> https://github.com/siva-sai-udaygiri/policy-pulse-api
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## Features (current)
+- API connectivity demo (`/api-demo`)
+- Calls backend health endpoint and renders JSON response
+- Typed HTTP client approach + UI-friendly error handling (in progress)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Planned (roadmap)
+- Policies list with search/filter + pagination
+- Create/Edit policy forms with validation
+- Auth flow (JWT) + role-based screens
+- E2E smoke tests + CI build pipeline
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Tech Stack
+- React, TypeScript
+- Vite
+- ESLint
+- (Planned) Component tests: Vitest + React Testing Library
+- (Planned) E2E: Playwright
 
-```js
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Prerequisites
+- Node.js 18+ (recommended)
+- npm 9+
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
+---
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Run locally
 
-```js
-// eslint.config.js
-import reactX from "eslint-plugin-react-x";
-import reactDom from "eslint-plugin-react-dom";
+### 1) Start the backend API first
+The UI expects the API running locally.
 
-export default defineConfig([
-  globalIgnores(["dist"]),
-  {
-    files: ["**/*.{ts,tsx}"],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs["recommended-typescript"],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
+```bash
+# in policy-pulse-api
+mvnw spring-boot:run
