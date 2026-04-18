@@ -1,4 +1,10 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 
 type PolicyStatus = "ACTIVE" | "PENDING" | "EXPIRED" | string;
 
@@ -36,9 +42,10 @@ export default function PoliciesPage() {
   const [premium, setPremium] = useState("");
   const [editingPolicyId, setEditingPolicyId] = useState<number | null>(null);
 
-  const [selectedFiles, setSelectedFiles] = useState<Record<number, File | null>>({});
-  const [uploadingById, setUploadingById] = useState<Record<number, boolean>>({});
-  const [fileInputKeys, setFileInputKeys] = useState<Record<number, number>>({});
+  const [uploadingPolicyId, setUploadingPolicyId] = useState<number | null>(null);
+  const [downloadingPolicyId, setDownloadingPolicyId] = useState<number | null>(null);
+
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   async function loadPolicies(
     selectedStatus: string,
@@ -113,67 +120,6 @@ export default function PoliciesPage() {
     setError("");
   }
 
-  function handleFileChange(policyId: number, file: File | null) {
-    setSelectedFiles((prev) => ({
-      ...prev,
-      [policyId]: file,
-    }));
-  }
-
-  async function handleUpload(policyId: number) {
-    const file = selectedFiles[policyId];
-
-    if (!file) {
-      alert("Please choose a file first");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      setError("");
-      setUploadingById((prev) => ({
-        ...prev,
-        [policyId]: true,
-      }));
-
-      const response = await fetch(
-        `http://localhost:8080/api/policies/${policyId}/document`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      if (!response.ok) {
-        setError("Unable to upload document.");
-        return;
-      }
-
-      await response.json();
-
-      alert("Document uploaded successfully");
-
-      setSelectedFiles((prev) => ({
-        ...prev,
-        [policyId]: null,
-      }));
-
-      setFileInputKeys((prev) => ({
-        ...prev,
-        [policyId]: (prev[policyId] ?? 0) + 1,
-      }));
-    } catch {
-      setError("Unable to upload document.");
-    } finally {
-      setUploadingById((prev) => ({
-        ...prev,
-        [policyId]: false,
-      }));
-    }
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -245,6 +191,109 @@ export default function PoliciesPage() {
     } catch {
       setError("Unable to delete policy.");
     }
+  }
+
+  function openFilePicker(policyId: number) {
+    fileInputRefs.current[policyId]?.click();
+  }
+
+  async function handleFileSelected(
+    policyId: number,
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setError("");
+    setUploadingPolicyId(policyId);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `http://localhost:8080/api/policies/${policyId}/document`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        setError("Unable to upload document.");
+        return;
+      }
+
+      await loadPolicies(status, page, size);
+    } catch {
+      setError("Unable to upload document.");
+    } finally {
+      setUploadingPolicyId(null);
+
+      if (fileInputRefs.current[policyId]) {
+        fileInputRefs.current[policyId]!.value = "";
+      }
+    }
+  }
+
+  async function handleDownloadDocument(policy: Policy) {
+    if (!policy.documentKey) {
+      setError("No document available for this policy.");
+      return;
+    }
+
+    setError("");
+    setDownloadingPolicyId(policy.id);
+
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/policies/${policy.id}/document`,
+        {
+          method: "GET",
+        }
+      );
+
+      if (!response.ok) {
+        setError("Unable to download document.");
+        return;
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get("content-disposition");
+
+      let fileName = policy.documentKey;
+
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.*?)"?$/);
+        if (match?.[1]) {
+          fileName = match[1];
+        }
+      }
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch {
+      setError("Unable to download document.");
+    } finally {
+      setDownloadingPolicyId(null);
+    }
+  }
+
+  function renderDocumentLabel(policy: Policy) {
+    if (!policy.documentKey) {
+      return "No document";
+    }
+
+    return policy.documentKey;
   }
 
   return (
@@ -337,8 +386,8 @@ export default function PoliciesPage() {
                 <th>Holder Name</th>
                 <th>Status</th>
                 <th>Premium</th>
-                <th>Actions</th>
                 <th>Document</th>
+                <th>Actions</th>
               </tr>
               </thead>
               <tbody>
@@ -354,39 +403,43 @@ export default function PoliciesPage() {
                         </span>
                     </td>
                     <td>${p.premium}</td>
+                    <td style={{ maxWidth: "220px", wordBreak: "break-word" }}>
+                      {renderDocumentLabel(p)}
+                    </td>
                     <td>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <button type="button" onClick={() => handleEditClick(p)}>
                           Edit
                         </button>
+
                         <button type="button" onClick={() => handleDeletePolicy(p.id)}>
                           Delete
                         </button>
-                      </div>
-                    </td>
-                    <td>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "8px",
-                          flexWrap: "wrap",
-                          alignItems: "center",
-                        }}
-                      >
-                        <input
-                          key={fileInputKeys[p.id] ?? 0}
-                          type="file"
-                          onChange={(e) =>
-                            handleFileChange(p.id, e.target.files?.[0] ?? null)
-                          }
-                        />
+
                         <button
                           type="button"
-                          onClick={() => handleUpload(p.id)}
-                          disabled={uploadingById[p.id] === true}
+                          onClick={() => openFilePicker(p.id)}
+                          disabled={uploadingPolicyId === p.id}
                         >
-                          {uploadingById[p.id] ? "Uploading..." : "Upload"}
+                          {uploadingPolicyId === p.id ? "Uploading..." : "Choose & Upload"}
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadDocument(p)}
+                          disabled={!p.documentKey || downloadingPolicyId === p.id}
+                        >
+                          {downloadingPolicyId === p.id ? "Downloading..." : "Download"}
+                        </button>
+
+                        <input
+                          type="file"
+                          ref={(element) => {
+                            fileInputRefs.current[p.id] = element;
+                          }}
+                          style={{ display: "none" }}
+                          onChange={(event) => void handleFileSelected(p.id, event)}
+                        />
                       </div>
                     </td>
                   </tr>
